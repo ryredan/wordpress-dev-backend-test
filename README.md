@@ -26,4 +26,4 @@ Find a way to auto activate the theme and the plugins after installing the depen
 
 # Delivering the results
 
-Fork this repo and send us the link to your clone at GitHub. If your repo is private, give permissions to mmccpp@gmail.com.
+Fork this repo and send us the link to your clone at GitHub. If your repo is private, give permissions to @matepaiva.
