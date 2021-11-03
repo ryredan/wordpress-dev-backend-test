@@ -49,6 +49,7 @@ function make_product_custom_fields(){
 }
 add_action('carbon_fields_register_fields', 'make_product_custom_fields');
 
+
 function associate_posts($post_id)
 {
     if(get_post_type($post_id) == 'products')
@@ -56,11 +57,18 @@ function associate_posts($post_id)
         $posts = carbon_get_post_meta($post_id, 'post_association');
         foreach($posts as $post)
         {
+            $currentProductAssociation = carbon_get_post_meta($post['id'], 'product_association[0]');
+            if($currentProductAssociation != null)
+            {
+                $productData = carbon_get_post_meta($currentProductAssociation, 'post_association');
+                carbon_set_post_meta($currentProductAssociation, 'post_association', array_diff($productData, array($post['id'])));
+            }
             carbon_set_post_meta($post['id'], 'product_association', array($post_id));
         }
     }
 }
 add_action('carbon_fields_post_meta_container_saved', 'associate_posts');
+
 
 function delete_product_association($post_id)
 {
@@ -143,16 +151,46 @@ function delete_post_association($post_id)
 add_action('before_delete_post', 'delete_post_association');
 /* General Post Configuration END */
 
+/* GraphQL bindings */
 add_action( 'graphql_register_types', function() {
 
+    register_graphql_connection([
+		'fromType' => 'product',
+		'toType' => 'MediaItem',
+		'fromFieldName' => 'image',
+		'resolve' => function( \WPGraphQL\Model\Post $source, $args, $context, $info ) {
+			$resolver = new \WPGraphQL\Data\Connection\PostObjectConnectionResolver( $source, $args, $context, $info, 'attachment' );
+            //$resolver->set_query_arg('post_type', 'attachment');
+			$resolver->set_query_arg('post__in', array(get_post_meta($source->ID, '_product_image', true)));
+            //$resolver->set_query_arg('post_status', 'inherit');
+			return $resolver->get_connection();
+		}
+	]);
+    
+    /* products->posts */
 	register_graphql_connection([
 		'fromType' => 'product',
 		'toType' => 'Post',
 		'fromFieldName' => 'posts',
 		'connectionArgs' => \WPGraphQL\Connection\PostObjects::get_connection_args(),
 		'resolve' => function( \WPGraphQL\Model\Post $source, $args, $context, $info ) {
-			$resolver = new \WPGraphQL\Data\Connection\PostObjectConnectionResolver( $source, $args, $context, $info, 'attachment' );
-			$resolver->set_query_arg('post_parent', $source->ID);
+			$resolver = new \WPGraphQL\Data\Connection\PostObjectConnectionResolver( $source, $args, $context, $info, 'post' );
+			$resolver->set_query_arg('post__in', get_post_meta($source->ID, 'post_association'));
+            $resolver->set_query_arg('meta_value', $source->ID); //maybe delete
+			return $resolver->get_connection();
+		}
+	]);
+
+    /* post->product */
+    register_graphql_connection([
+		'fromType' => 'post',
+		'toType' => 'Post',
+		'fromFieldName' => 'product',
+		'connectionArgs' => \WPGraphQL\Connection\PostObjects::get_connection_args(),
+		'resolve' => function( \WPGraphQL\Model\Post $source, $args, $context, $info ) {
+			$resolver = new \WPGraphQL\Data\Connection\PostObjectConnectionResolver( $source, $args, $context, $info, 'post' );
+			$resolver->set_query_arg('post__in', get_post_meta($source->ID, 'product_association', true));
+            $resolver->set_query_arg('meta_value', $source->ID);
 			return $resolver->get_connection();
 		}
 	]);
