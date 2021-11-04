@@ -118,7 +118,7 @@ add_action('before_delete_post', 'delete_product_association');
 function add_product_association_fields()
 {
     Container::make('post_meta', 'Relacionamentos')
-    ->where('post_type', '!=', 'products')
+    ->where('post_type', '=', 'post')
     ->add_fields( array(
         Field::make('association', 'product_association', 'Produto')
         ->set_types(array(
@@ -137,24 +137,40 @@ function update_product_associated_posts($post_id)
     {
         $productId = carbon_get_post_meta($post_id, 'product_association')[0]['id'];
         $productPosts = carbon_get_post_meta($productId, 'post_association');
-        $allPosts = [];
-        foreach($productPosts as $post)
-        {
-            $allPosts[] = $post['id'];
-        }
+        $allPosts = array_column($productPosts, 'id');
         if(!in_array($post_id, $allPosts))
         {
             $allPosts[] = $post_id;
         }
         carbon_set_post_meta($productId, 'post_association', $allPosts);
+
+        $query_args = array(
+            'post_type' => 'products',
+            'meta_query' => array(
+                array(
+                    'key' => 'carbon_fields:_post_association|||%|id',
+                    'value' => $post_id,
+                ),
+            ),
+            'fields' => 'ids'
+        );
+
+        $query = new WP_Query($query_args);
+        foreach($query->get_posts() as $p)
+        {
+            if($p != $productId)
+            {
+                carbon_set_post_meta($p, 'post_association', array_diff(carbon_get_post_meta($p, 'post_association'), $post_id));
+            }
+        }
     }
 }
 
 add_action('carbon_fields_post_meta_container_saved', 'update_product_associated_posts');
-
+/*
 function delete_post_association($post_id)
 {
-    if(get_post_type($post_id) != 'products')
+    if(get_post_type($post_id) == 'post')
     {
         $productId = carbon_get_post_meta($post_id, 'product_association')[0]['id'];
         $productPosts = carbon_get_post_meta($productId, 'post_association');
@@ -171,6 +187,7 @@ function delete_post_association($post_id)
 }
 
 add_action('before_delete_post', 'delete_post_association');
+*/
 /* General Post Configuration END */
 
 /* GraphQL bindings */
