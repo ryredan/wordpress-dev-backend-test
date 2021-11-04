@@ -65,6 +65,28 @@ function associate_posts($post_id)
             }
             carbon_set_post_meta($post['id'], 'product_association', array($post_id));
         }
+        //Cleanup
+
+        $query_args = array(
+            'post_type' => 'post',
+            'meta_query' => array(
+                array(
+                    'key' => 'carbon_fields:_product_association|||%|id',
+                    'value' => $post_id,
+                ),
+            ),
+            'fields' => 'ids'
+        );
+
+        $query = new WP_Query($query_args);
+        foreach($query->get_posts() as $p)
+        {
+            if(!in_array($p, array_column($posts, 'id')))
+            {
+                carbon_set_post_meta($p, 'product_association', array());
+            }
+        }
+
     }
 }
 add_action('carbon_fields_post_meta_container_saved', 'associate_posts');
