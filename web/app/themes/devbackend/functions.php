@@ -57,11 +57,11 @@ function associate_posts($post_id)
         $posts = carbon_get_post_meta($post_id, 'post_association');
         foreach($posts as $post)
         {
-            $currentProductAssociation = carbon_get_post_meta($post['id'], 'product_association[0]');
-            if($currentProductAssociation != null)
+            $associated_product = carbon_get_post_meta($post['id'], 'product_association')[0]['id'];
+            if(($associated_product != null) && $associated_product != $post_id)
             {
-                $productData = carbon_get_post_meta($currentProductAssociation, 'post_association');
-                carbon_set_post_meta($currentProductAssociation, 'post_association', array_diff($productData, array($post['id'])));
+                $product_posts = carbon_get_post_meta($associated_product, 'post_association');
+                carbon_set_post_meta($associated_product, 'post_association', array_diff(array_column($product_posts, 'id'), array($post['id'])));
             }
             carbon_set_post_meta($post['id'], 'product_association', array($post_id));
         }
@@ -133,7 +133,7 @@ add_action('carbon_fields_register_fields', 'add_product_association_fields');
 
 function update_product_associated_posts($post_id)
 {
-    if(get_post_type($post_id) != 'products')
+    if(get_post_type($post_id) == 'post')
     {
         $productId = carbon_get_post_meta($post_id, 'product_association')[0]['id'];
         $productPosts = carbon_get_post_meta($productId, 'post_association');
@@ -160,34 +160,39 @@ function update_product_associated_posts($post_id)
         {
             if($p != $productId)
             {
-                carbon_set_post_meta($p, 'post_association', array_diff(carbon_get_post_meta($p, 'post_association'), $post_id));
+                carbon_set_post_meta($p, 'post_association', array_diff(carbon_get_post_meta($p, 'post_association'), array($post_id)));
             }
         }
     }
 }
 
 add_action('carbon_fields_post_meta_container_saved', 'update_product_associated_posts');
-/*
+
+
 function delete_post_association($post_id)
 {
     if(get_post_type($post_id) == 'post')
     {
-        $productId = carbon_get_post_meta($post_id, 'product_association')[0]['id'];
-        $productPosts = carbon_get_post_meta($productId, 'post_association');
-        $allPosts = [];
-        foreach($productPosts as $post)
-        {
-            if($post['id'] != $post_id)
-            {
-                $allPosts[] = $post['id'];
-            }
-        }
-        carbon_set_post_meta($productId, 'post_association', $allPosts);
+        $product_id = carbon_get_post_meta($post_id, 'product_association')[0]['id'];
+        $product_posts = carbon_get_post_meta($product_id, 'post_association');
+        $all_posts = array_column($product_posts, 'id');
+        // var_dump($all_posts);
+        // var_dump($post_id);
+        // die();
+
+        // foreach($productPosts as $post)
+        // {
+        //     if($post['id'] != $post_id)
+        //     {
+        //         $allPosts[] = $post['id'];
+        //     }
+        // }
+        carbon_set_post_meta($product_id, 'post_association', array_diff($all_posts, $post_id));
     }
 }
 
 add_action('before_delete_post', 'delete_post_association');
-*/
+
 /* General Post Configuration END */
 
 /* GraphQL bindings */
