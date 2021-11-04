@@ -135,14 +135,14 @@ function update_product_associated_posts($post_id)
 {
     if(get_post_type($post_id) == 'post')
     {
-        $productId = carbon_get_post_meta($post_id, 'product_association')[0]['id'];
-        $productPosts = carbon_get_post_meta($productId, 'post_association');
-        $allPosts = array_column($productPosts, 'id');
-        if(!in_array($post_id, $allPosts))
+        $product_id = carbon_get_post_meta($post_id, 'product_association')[0]['id'];
+        $product_posts = carbon_get_post_meta($product_id, 'post_association');
+        $all_posts = array_column($product_posts, 'id');
+        if(!in_array($post_id, $all_posts))
         {
-            $allPosts[] = $post_id;
+            $all_posts[] = $post_id;
         }
-        carbon_set_post_meta($productId, 'post_association', $allPosts);
+        carbon_set_post_meta($product_id, 'post_association', $all_posts);
 
         $query_args = array(
             'post_type' => 'products',
@@ -158,9 +158,10 @@ function update_product_associated_posts($post_id)
         $query = new WP_Query($query_args);
         foreach($query->get_posts() as $p)
         {
-            if($p != $productId)
+            if($p != $product_id)
             {
-                carbon_set_post_meta($p, 'post_association', array_diff(carbon_get_post_meta($p, 'post_association'), array($post_id)));
+                $target_product = array_column(carbon_get_post_meta($p, 'post_association'), 'id');
+                carbon_set_post_meta($p, 'post_association', array_diff($target_product, array($post_id)));
             }
         }
     }
@@ -187,7 +188,7 @@ function delete_post_association($post_id)
         //         $allPosts[] = $post['id'];
         //     }
         // }
-        carbon_set_post_meta($product_id, 'post_association', array_diff($all_posts, $post_id));
+        carbon_set_post_meta($product_id, 'post_association', array_diff($all_posts, array($post_id)));
     }
 }
 
