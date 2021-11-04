@@ -17,9 +17,16 @@ add_action('carbon_fields_register_fields', function () {
         ]);
 });
 
+
+
 /* Products Custom Post Type BEGIN */
-function products_post_type() {
-    register_post_type('products', array(
+
+/*
+* Registro do novo tipo de post
+* com os bindings com o graphQL
+*/
+function product_post_type() {
+    register_post_type('product', array(
         'label' => 'Produtos',
         'public' => true,
         'supports' => ['title'],
@@ -31,11 +38,14 @@ function products_post_type() {
 
 }
 
-add_action('init', 'products_post_type');
+add_action('init', 'product_post_type');
 
+/*
+* Campos customizados de imagem e associação com outros posts
+*/
 function make_product_custom_fields(){
-    Container::make('post_meta', 'products', 'Detalhes' )
-    ->where( 'post_type', '=', 'products' )
+    Container::make('post_meta', 'product', 'Detalhes' )
+    ->where( 'post_type', '=', 'product' )
     ->add_fields( array(
         Field::make('image', 'product_image', __('Image')),
         Field::make('association', 'post_association', 'Associação')
@@ -49,10 +59,14 @@ function make_product_custom_fields(){
 }
 add_action('carbon_fields_register_fields', 'make_product_custom_fields');
 
-
+/*
+* Função responsável pela manipulação dos posts associados ao produto.
+* Após fazer a atualização dos posts associados, uma busca é feita para
+* remover todas as associações não recíprocas
+*/
 function associate_posts($post_id)
 {
-    if(get_post_type($post_id) == 'products')
+    if(get_post_type($post_id) == 'product')
     {
         $posts = carbon_get_post_meta($post_id, 'post_association');
         foreach($posts as $post)
@@ -65,8 +79,8 @@ function associate_posts($post_id)
             }
             carbon_set_post_meta($post['id'], 'product_association', array($post_id));
         }
-        //Cleanup
-
+        
+        // busca e remoção de associações não recíprocas
         $query_args = array(
             'post_type' => 'post',
             'meta_query' => array(
@@ -91,10 +105,14 @@ function associate_posts($post_id)
 }
 add_action('carbon_fields_post_meta_container_saved', 'associate_posts');
 
-
+/*
+* Antes de deletar o post permanentemente,
+* todas os relacionamentos são removidos a
+* fim de evitar referencias a posts inexistentes.
+*/
 function delete_product_association($post_id)
 {
-    if(get_post_type($post_id) == 'products')
+    if(get_post_type($post_id) == 'product')
     {
         $posts = carbon_get_post_meta($post_id, 'post_association');
         foreach($posts as $post)
@@ -109,12 +127,8 @@ add_action('before_delete_post', 'delete_product_association');
 /* Products Custom Post Type END */
 
 
-
-
-
-
 /* General Post Configuration BEGIN */
-
+ 
 function add_product_association_fields()
 {
     Container::make('post_meta', 'Relacionamentos')
@@ -124,11 +138,12 @@ function add_product_association_fields()
         ->set_types(array(
             array(
                 'type' => 'post',
-                'post_type' => 'products'
+                'post_type' => 'product'
             )
         ))->set_max(1)
     ));
-}    
+}   
+
 add_action('carbon_fields_register_fields', 'add_product_association_fields');
 
 function update_product_associated_posts($post_id)
@@ -145,7 +160,7 @@ function update_product_associated_posts($post_id)
         carbon_set_post_meta($product_id, 'post_association', $all_posts);
 
         $query_args = array(
-            'post_type' => 'products',
+            'post_type' => 'product',
             'meta_query' => array(
                 array(
                     'key' => 'carbon_fields:_post_association|||%|id',
@@ -177,17 +192,6 @@ function delete_post_association($post_id)
         $product_id = carbon_get_post_meta($post_id, 'product_association')[0]['id'];
         $product_posts = carbon_get_post_meta($product_id, 'post_association');
         $all_posts = array_column($product_posts, 'id');
-        // var_dump($all_posts);
-        // var_dump($post_id);
-        // die();
-
-        // foreach($productPosts as $post)
-        // {
-        //     if($post['id'] != $post_id)
-        //     {
-        //         $allPosts[] = $post['id'];
-        //     }
-        // }
         carbon_set_post_meta($product_id, 'post_association', array_diff($all_posts, array($post_id)));
     }
 }
@@ -197,8 +201,13 @@ add_action('before_delete_post', 'delete_post_association');
 /* General Post Configuration END */
 
 /* GraphQL bindings */
+
 add_action( 'graphql_register_types', function() {
 
+
+    /*
+    * Conexão com a imagem
+    */
     register_graphql_connection([
 		'fromType' => 'product',
 		'toType' => 'MediaItem',
@@ -212,7 +221,9 @@ add_action( 'graphql_register_types', function() {
 		}
 	]);
     
-    /* products->posts */
+    /*
+    * products->posts
+    */
 	register_graphql_connection([
 		'fromType' => 'product',
 		'toType' => 'Post',
@@ -220,7 +231,7 @@ add_action( 'graphql_register_types', function() {
 		'connectionArgs' => \WPGraphQL\Connection\PostObjects::get_connection_args(),
 		'resolve' => function( \WPGraphQL\Model\Post $source, $args, $context, $info ) {
 			$resolver = new \WPGraphQL\Data\Connection\PostObjectConnectionResolver( $source, $args, $context, $info, 'post' );
-			$resolver->set_query_arg('post__in', get_post_meta($source->ID, 'post_association'));
+			//$resolver->set_query_arg('post__in', get_post_meta($source->ID, 'post_association'));
             $resolver->set_query_arg('meta_value', $source->ID); //maybe delete
 			return $resolver->get_connection();
 		}
@@ -233,8 +244,13 @@ add_action( 'graphql_register_types', function() {
 		'fromFieldName' => 'product',
 		'connectionArgs' => \WPGraphQL\Connection\PostObjects::get_connection_args(),
 		'resolve' => function( \WPGraphQL\Model\Post $source, $args, $context, $info ) {
-			$resolver = new \WPGraphQL\Data\Connection\PostObjectConnectionResolver( $source, $args, $context, $info, 'post' );
-			$resolver->set_query_arg('post__in', get_post_meta($source->ID, 'product_association', true));
+			$resolver = new \WPGraphQL\Data\Connection\PostObjectConnectionResolver( $source, $args, $context, $info, 'product' );
+			// $resolver->set_query_arg('meta_query', array(
+            //     array(
+            //         'key' => 'carbon_fields:_product_association|||%|id',
+            //         'value' => $source->ID,
+            //     ),
+            // ));
             $resolver->set_query_arg('meta_value', $source->ID);
 			return $resolver->get_connection();
 		}
