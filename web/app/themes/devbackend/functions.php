@@ -128,7 +128,10 @@ add_action('before_delete_post', 'delete_product_association');
 
 
 /* General Post Configuration BEGIN */
- 
+
+/*
+* Campo de associação adicionado aos posts
+*/
 function add_product_association_fields()
 {
     Container::make('post_meta', 'Relacionamentos')
@@ -146,6 +149,12 @@ function add_product_association_fields()
 
 add_action('carbon_fields_register_fields', 'add_product_association_fields');
 
+/*
+* Ao atualizar um post, o produto associado é
+* atualizado, em seguida qualquer outro produto
+* que ainda faça referencia ao post é atualizado
+* a fim de remover referencias não reciprocas
+*/
 function update_product_associated_posts($post_id)
 {
     if(get_post_type($post_id) == 'post')
@@ -184,7 +193,11 @@ function update_product_associated_posts($post_id)
 
 add_action('carbon_fields_post_meta_container_saved', 'update_product_associated_posts');
 
-
+/*
+* Ao apagar um post, todos os produtos que guardam
+* uma referencia aquele post devem ser atualizados
+* a evitar referencias a posts inexistentes.
+*/
 function delete_post_association($post_id)
 {
     if(get_post_type($post_id) == 'post')
@@ -222,7 +235,7 @@ add_action( 'graphql_register_types', function() {
 	]);
     
     /*
-    * products->posts
+    * product->posts
     */
 	register_graphql_connection([
 		'fromType' => 'product',
@@ -257,3 +270,5 @@ add_action( 'graphql_register_types', function() {
 	]);
 
 } );
+
+// Em config/application.php, o tema é ativado por padrão atribuindo 'devbackend' a 'WP_DEFAULT_THEME'

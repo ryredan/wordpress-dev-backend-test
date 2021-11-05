@@ -127,6 +127,9 @@ if (file_exists($env_config)) {
     require_once $env_config;
 }
 
+/* setup default theme */
+Config::define('WP_DEFAULT_THEME', 'devbackend');
+
 Config::apply();
 
 /**
