@@ -9,6 +9,7 @@ web/vendor/*
 
 # WordPress
 web/wp
+!web/wp/wp-content/install.php
 web/.htaccess
 
 # Logs
